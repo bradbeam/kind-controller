@@ -23,13 +23,20 @@ install: manifests
 	kubectl apply -f config/crd/bases
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests
+deploy:
+	sed -i -r 's/^( +)  or SCTP\. Defaults to "TCP"\./\0\n\1default: TCP/' \
+	  config/crd/bases/batch.tutorial.kubebuilder.io_cronjobs.yaml
 	kubectl apply -f config/crd/bases
 	kustomize build config/default | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./api/...;./controllers/..." output:crd:artifacts:config=config/crd/bases
+	# ref: https://github.com/kubernetes/kubernetes/issues/91395#issuecomment-659196560
+	# workaround for CRD issue with k8s 1.18 & controller-gen 0.3
+	# ref: https://github.com/kubernetes/kubernetes/issues/91395
+	sed -i -r 's/^( +)  or SCTP\. Defaults to "TCP"\./\0\n\1default: TCP/' \
+	  config/crd/bases/batch.tutorial.kubebuilder.io_cronjobs.yaml
 
 # Run go fmt against code
 fmt:
@@ -57,7 +64,7 @@ docker-push:
 # download controller-gen if necessary
 controller-gen:
 ifeq (, $(shell which controller-gen))
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.0-rc.0
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.5
 CONTROLLER_GEN=$(shell go env GOPATH)/bin/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
