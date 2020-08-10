@@ -33,7 +33,10 @@ jobs:
           #- v0.2.5
           #- v0.2.4
           #- v0.2.3
-          - v0.2.2
+          #- v0.2.2
+          #- v0.2.1
+          - v0.2.0
+          - v0.2.0-rc.0
         controller-runtime:
           - v0.6.2
           #- v0.6.1
@@ -47,7 +50,7 @@ jobs:
           #- v0.5.3
           #- v0.5.2
           #- v0.5.1
-          - v0.5.0
+          #- v0.5.0
           - v0.4.0
           - v0.3.0
           #- v0.2.2
@@ -56,12 +59,12 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v2
-      - name: KinD (Kubernetes in Docker) Initialization
-        uses: helm/kind-action@v1.0.0-rc.1
-        with:
-          version: v0.8.1
-          node_image: kindest/node:${{ matrix.node }}
-          wait: 0s
+      #- name: KinD (Kubernetes in Docker) Initialization
+      #  uses: helm/kind-action@v1.0.0-rc.1
+      #  with:
+      #    version: v0.8.1
+      #    node_image: kindest/node:${{ matrix.node }}
+      #    wait: 0s
       - name: Build controller
         run: |
           go get sigs.k8s.io/controller-tools/cmd/controller-gen@${{ matrix.controller-gen }}
