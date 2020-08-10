@@ -30,6 +30,7 @@ import (
 	"github.com/robfig/cron"
 	kbatch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ref "k8s.io/client-go/tools/reference"
@@ -40,7 +41,10 @@ import (
 )
 
 /*
-Next, we'll need a Clock, which will allow us to fake timing in our tests.
+Next, we'll need a few more bits in our Reconciler:
+
+We'll need the Scheme, in order to call some helpers that set owner references,
+and we'll need a Clock, which will allow us to fake timing in our tests.
 */
 
 // CronJobReconciler reconciles a CronJob object
@@ -66,6 +70,20 @@ type Clock interface {
 }
 
 // +kubebuilder:docs-gen:collapse=Clock
+
+/*
+We generally want to ignore (not requeue) NotFound errors, since we'll get a
+reconciliation request once the object exists, and requeuing in the meantime
+won't help.
+*/
+func ignoreNotFound(err error) error {
+	if apierrs.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
+
+// +kubebuilder:docs-gen:collapse=ignoreNotFound
 
 /*
 Notice that we need a few more RBAC permissions -- since we're creating and
@@ -107,7 +125,7 @@ func (r *CronJobReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
 	/*
@@ -124,19 +142,6 @@ func (r *CronJobReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	/*
-
-		<aside class="note"> 
-
-		<h1>What is this index about?</h1>
-
-		<p>The reconciler fetches all jobs owned by the cronjob for the status. As our number of cronjobs increases, 
-		looking these up can become quite slow as we have to filter through all of them. For a more efficient lookup, 
-		these jobs will be indexed locally on the controller's name. A jobOwnerKey field is added to the 
-		cached job objects. This key references the owning controller and functions as the index. Later in this 
-		document we will configure the manager to actually index this field.</p>
-			
-		</aside>
-		
 		Once we have all the jobs we own, we'll split them into active, successful,
 		and failed jobs, keeping track of the most recent run so that we can record it
 		in status.  Remember, status should be able to be reconstituted from the state
@@ -275,7 +280,7 @@ func (r *CronJobReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			if int32(i) >= int32(len(failedJobs))-*cronJob.Spec.FailedJobsHistoryLimit {
 				break
 			}
-			if err := r.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
+			if err := r.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); ignoreNotFound(err) != nil {
 				log.Error(err, "unable to delete old failed job", "job", job)
 			} else {
 				log.V(0).Info("deleted old failed job", "job", job)
@@ -294,7 +299,7 @@ func (r *CronJobReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			if int32(i) >= int32(len(successfulJobs))-*cronJob.Spec.SuccessfulJobsHistoryLimit {
 				break
 			}
-			if err := r.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); (err) != nil {
+			if err := r.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); ignoreNotFound(err) != nil {
 				log.Error(err, "unable to delete old successful job", "job", job)
 			} else {
 				log.V(0).Info("deleted old successful job", "job", job)
@@ -441,7 +446,7 @@ func (r *CronJobReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if cronJob.Spec.ConcurrencyPolicy == batch.ReplaceConcurrent {
 		for _, activeJob := range activeJobs {
 			// we don't care if the job was already deleted
-			if err := r.Delete(ctx, activeJob, client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
+			if err := r.Delete(ctx, activeJob, client.PropagationPolicy(metav1.DeletePropagationBackground)); ignoreNotFound(err) != nil {
 				log.Error(err, "unable to delete active job", "job", activeJob)
 				return ctrl.Result{}, err
 			}
