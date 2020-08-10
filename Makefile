@@ -24,8 +24,8 @@ install: manifests
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy:
-	sed -i -r 's/^( +)  or SCTP\. Defaults to "TCP"\./\0\n\1default: TCP/' \
-	  config/crd/bases/batch.tutorial.kubebuilder.io_cronjobs.yaml
+	#sed -i -r 's/^( +)  or SCTP\. Defaults to "TCP"\./\0\n\1default: TCP/' \
+	#  config/crd/bases/batch.tutorial.kubebuilder.io_cronjobs.yaml
 	kubectl apply -f config/crd/bases
 	kustomize build config/default | kubectl apply -f -
 
@@ -35,8 +35,8 @@ manifests: controller-gen
 	# ref: https://github.com/kubernetes/kubernetes/issues/91395#issuecomment-659196560
 	# workaround for CRD issue with k8s 1.18 & controller-gen 0.3
 	# ref: https://github.com/kubernetes/kubernetes/issues/91395
-	sed -i -r 's/^( +)  or SCTP\. Defaults to "TCP"\./\0\n\1default: TCP/' \
-	  config/crd/bases/batch.tutorial.kubebuilder.io_cronjobs.yaml
+	#sed -i -r 's/^( +)  or SCTP\. Defaults to "TCP"\./\0\n\1default: TCP/' \
+	#  config/crd/bases/batch.tutorial.kubebuilder.io_cronjobs.yaml
 
 # Run go fmt against code
 fmt:
