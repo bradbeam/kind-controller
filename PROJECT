@@ -1,0 +1,7 @@
+domain: example.squiggly.dev
+repo: github.com/carbonrelay/kind-controller
+resources:
+- group: funsies
+  kind: Echo
+  version: v1alpha1
+version: "2"

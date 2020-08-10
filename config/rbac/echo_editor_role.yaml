@@ -1,0 +1,24 @@
+# permissions for end users to edit echoes.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: echo-editor-role
+rules:
+- apiGroups:
+  - funsies.example.squiggly.dev
+  resources:
+  - echoes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - funsies.example.squiggly.dev
+  resources:
+  - echoes/status
+  verbs:
+  - get
