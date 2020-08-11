@@ -1,0 +1,6 @@
+apiVersion: funsies.example.squiggly.dev/v1alpha1
+kind: Echo
+metadata:
+  name: echo-sample
+spec:
+  message: trololololo

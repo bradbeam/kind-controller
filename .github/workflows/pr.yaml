@@ -1,0 +1,69 @@
+name: Matrix workflow
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+jobs:
+  test:
+    name: Controller E2E
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Version listings can be found here:
+        # https://github.com/kubernetes-sigs/kind/releases
+        node:
+          - v1.18.2
+          - v1.17.5
+          - v1.16.9
+          - v1.15.11
+          - v1.14.10
+          #- v1.13.12
+          #- v1.12.10
+          #- v1.11.10
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: KinD (Kubernetes in Docker) Initialization
+        uses: helm/kind-action@v1.0.0-rc.1
+        with:
+          version: v0.8.1
+          node_image: kindest/node:${{ matrix.node }}
+          wait: 0s
+      - name: Build controller
+        run: |
+          # Install kubebuilder
+          os=$(go env GOOS)
+          arch=$(go env GOARCH)
+          curl -L https://go.kubebuilder.io/dl/2.3.1/${os}/${arch} | tar -xz -C /tmp/
+          # (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
+          sudo mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder
+          export PATH=$PATH:/usr/local/kubebuilder/bin
+          # Build controller
+          make docker-build
+      - name: Deploy controller
+        run: |
+          # Upload controller image to our KinD cluster
+          kind load docker-image controller:latest --name chart-testing
+          # Install kustomize
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | \
+          bash
+          [[ ! -f /usr/local/bin/kustomize ]] && sudo mv ./kustomize /usr/local/bin/kustomize
+          make deploy
+      - name: e2e
+        run: |
+          # Wait for controller to be up and ready
+          kubectl wait --for condition=ready -n kind-controller-system po -l control-plane=controller-manager --timeout 20s
+          # Create echo
+          kubectl apply -f config/samples/funsies_v1alpha1_echo.yaml
+          # Wait for echo to update
+          kubectl wait --for condition=completed echo echo-sample --timeout 20s
+      - name: The job has failed
+        if: ${{ failure() }}
+        run: |
+          kubectl get echo -o wide || :
+          kubectl get echo echo-sample -o yaml || :
+          kubectl get po -l control-plane=controller-manager -n kind-controller-system -o yaml || :
+          kubectl logs -l control-plane=controller-manager -n kind-controller-system || :
